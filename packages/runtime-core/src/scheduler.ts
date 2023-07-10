@@ -60,6 +60,7 @@ export function nextTick<T = void>(
   fn?: (this: T) => void
 ): Promise<void> {
   const p = currentFlushPromise || resolvedPromise
+  // 返回了promise，把nextTick的回调放到promise.then中执行
   return fn ? p.then(this ? fn.bind(this) : fn) : p
 }
 
