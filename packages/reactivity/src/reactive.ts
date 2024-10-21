@@ -89,6 +89,7 @@ export type UnwrapNestedRefs<T> = T extends Ref ? T : UnwrapRefSimple<T>
 export function reactive<T extends object>(target: T): UnwrapNestedRefs<T>
 export function reactive(target: object) {
   // if trying to observe a readonly proxy, return the readonly version.
+  // 判断是否是readonly，是的话直接返回target
   if (isReadonly(target)) {
     return target
   }
@@ -193,6 +194,7 @@ function createReactiveObject(
   }
   // target is already a Proxy, return it.
   // exception: calling readonly() on a reactive object
+  // 如果当前已经是一个proxy对象，则直接返回
   if (
     target[ReactiveFlags.RAW] &&
     !(isReadonly && target[ReactiveFlags.IS_REACTIVE])
@@ -200,19 +202,27 @@ function createReactiveObject(
     return target
   }
   // target already has corresponding Proxy
+  // 如果target已经设置过了proxy则直接返回
   const existingProxy = proxyMap.get(target)
   if (existingProxy) {
     return existingProxy
   }
   // only a whitelist of value types can be observed.
+  // 用于区分：Object、Array、Map、Set、WeakMap、WeakSet
+  // TargetType.COLLECTION: Map、Set、WeakMap、WeakSet
+  // TargetType.COMMON: Object、Array
+  // 如果不等于这些类型（Object、Array、Map、Set、WeakMap、WeakSet）就直接return
   const targetType = getTargetType(target)
   if (targetType === TargetType.INVALID) {
     return target
   }
+  // 创建proxy对象
   const proxy = new Proxy(
     target,
+    // 根据targetType来选择不同的handler
     targetType === TargetType.COLLECTION ? collectionHandlers : baseHandlers
   )
+  // 把target和proxy对象存储到proxyMap中
   proxyMap.set(target, proxy)
   return proxy
 }
