@@ -87,6 +87,7 @@ export function shallowRef(value?: unknown) {
 }
 
 function createRef(rawValue: unknown, shallow: boolean) {
+  // 如果是ref类型，直接返回
   if (isRef(rawValue)) {
     return rawValue
   }
@@ -101,7 +102,9 @@ class RefImpl<T> {
   public readonly __v_isRef = true
 
   constructor(value: T, public readonly __v_isShallow: boolean) {
+    // 判断是不是浅观察，如果是浅观察，直接赋值，否则返回其原始对象
     this._rawValue = __v_isShallow ? value : toRaw(value)
+    // 判断是不是浅观察，如果是浅观察，直接赋值，否则调用toReactive
     this._value = __v_isShallow ? value : toReactive(value)
   }
 
@@ -112,6 +115,7 @@ class RefImpl<T> {
 
   set value(newVal) {
     newVal = this.__v_isShallow ? newVal : toRaw(newVal)
+    // 判断新旧值是否相等，不相等则更新
     if (hasChanged(newVal, this._rawValue)) {
       this._rawValue = newVal
       this._value = this.__v_isShallow ? newVal : toReactive(newVal)
