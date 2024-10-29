@@ -1,0 +1,105 @@
+<script src="../../dist/vue.global.js"></script>
+
+<script type="text/x-template" id="child-template">
+  <h1>child</h1>
+  <div>
+    {{ testRef }}
+  </div>
+</script>
+<!-- item script -->
+<script>
+  const Child = {
+    name: 'Child', // necessary for self-reference
+    template: '#child-template',
+    props: {
+      testRef: Array
+    },
+    setup(props) {
+      watch(
+        () => props.testRef,
+        newVal => {
+          console.log('出发了watch', newVal)
+        }
+      )
+      return {
+        testRef: props.testRef
+      }
+    }
+  }
+</script>
+
+<!-- item template -->
+<script type="text/x-template" id="parent-template">
+  <div>
+    <h1>下面是父组件</h1>
+    <div>
+      <button @click="onClick1">测试1</button>
+      <button @click="onClick2">测试2</button>
+    </div>
+    <Child class="item" :test-ref="testRef"></Child>
+  </div>
+</script>
+<!-- item script -->
+<script>
+  const { reactive, computed, toRefs, ref, watch } = Vue
+
+  const Parent = {
+    name: 'Parent',
+
+    template: '#parent-template',
+
+    components: {
+      Child // 注册 Child 组件
+    },
+
+    setup() {
+      const testRef = ref([1, 2])
+      const onClick1 = () => {
+        debugger
+        testRef.value[0] = 11
+      }
+
+      const onClick2 = () => {
+        testRef.value = [111, 222]
+      }
+      return {
+        testRef,
+        onClick1,
+        onClick2
+      }
+    }
+  }
+</script>
+
+<p>入口</p>
+<div id="demo">
+  <Parent class="item"></Parent>
+</div>
+<!-- the app root element -->
+
+<script>
+  Vue.createApp({
+    components: {
+      Parent
+    },
+    data: () => ({})
+  }).mount('#demo')
+</script>
+
+<style>
+  body {
+    font-family: Menlo, Consolas, monospace;
+    color: #444;
+  }
+  .item {
+    cursor: pointer;
+  }
+  .bold {
+    font-weight: bold;
+  }
+  ul {
+    padding-left: 1em;
+    line-height: 1.5em;
+    list-style-type: dot;
+  }
+</style>
