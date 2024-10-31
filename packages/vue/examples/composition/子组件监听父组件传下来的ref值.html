@@ -15,12 +15,18 @@
       testRef: Array
     },
     setup(props) {
+      // 方法二
       watch(
         () => props.testRef,
         newVal => {
+          console.log(isReactive(newVal))
           console.log('出发了watch', newVal)
         }
       )
+      // 方法一
+      watch(props.testRef, newVal => {
+        console.log('出发了watch2', newVal)
+      })
       return {
         testRef: props.testRef
       }
@@ -36,12 +42,12 @@
       <button @click="onClick1">测试1</button>
       <button @click="onClick2">测试2</button>
     </div>
-    <Child class="item" :test-ref="testRef"></Child>
+    <Child class="item" :test-ref="testRef" ></Child>
   </div>
 </script>
 <!-- item script -->
 <script>
-  const { reactive, computed, toRefs, ref, watch } = Vue
+  const { ref, watch, reactive, isReactive } = Vue
 
   const Parent = {
     name: 'Parent',
@@ -54,12 +60,14 @@
 
     setup() {
       const testRef = ref([1, 2])
+      const testReactive = reactive([555])
       const onClick1 = () => {
-        debugger
+        // 父组件单个赋值，子组件需要用 方法一 进行监听，才能触发watch的回调
         testRef.value[0] = 11
       }
 
       const onClick2 = () => {
+        // 父组件整个赋值，子组件需要用 方法二 进行监听，才能触发watch的回调
         testRef.value = [111, 222]
       }
       return {
