@@ -210,10 +210,13 @@ export function resetTracking() {
   shouldTrack = last === undefined ? true : last
 }
 
+// 子组件接收父组件传递的props，并且子组件使用（watch或者在模板字符串等），就会触发该方法
 export function track(target: object, type: TrackOpTypes, key: unknown) {
   if (shouldTrack && activeEffect) {
     let depsMap = targetMap.get(target)
     if (!depsMap) {
+      // 将传入的值作为key存在targetMap中
+      // targetMap是用WeakMap实现的一个数据结构
       targetMap.set(target, (depsMap = new Map()))
     }
     let dep = depsMap.get(key)
@@ -265,6 +268,8 @@ export function trigger(
   oldTarget?: Map<unknown, unknown> | Set<unknown>
 ) {
   const depsMap = targetMap.get(target)
+  // 当值发生改变，会判断当前的值（target）是否存在于targetMap中
+  // 不存在则return
   if (!depsMap) {
     // never been tracked
     return
