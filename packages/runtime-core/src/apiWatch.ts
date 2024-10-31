@@ -160,6 +160,7 @@ export function watch<T = any, Immediate extends Readonly<boolean> = false>(
   cb: any,
   options?: WatchOptions<Immediate>
 ): WatchStopHandle {
+  // 如果不是函数，则发出警告
   if (__DEV__ && !isFunction(cb)) {
     warn(
       `\`watch(fn, options?)\` signature has been moved to a separate API. ` +
@@ -204,15 +205,19 @@ function doWatch(
   let forceTrigger = false
   let isMultiSource = false
 
+  // 如果source是一个ref对象，则返回一个source.value的getter函数
   if (isRef(source)) {
     getter = () => source.value
     forceTrigger = isShallow(source)
   } else if (isReactive(source)) {
+    // 如果source是一个reactive对象，则返回一个source的getter函数
+    // 并且设置deep为true
     getter = () => source
     deep = true
   } else if (isArray(source)) {
     isMultiSource = true
     forceTrigger = source.some(isReactive)
+    // 如果是一个数组，则用source的map映射出一个新的数组，数组的每一项都会判断类型
     getter = () =>
       source.map(s => {
         if (isRef(s)) {
@@ -226,6 +231,7 @@ function doWatch(
         }
       })
   } else if (isFunction(source)) {
+    // 对source进行简单的错误兼容处理
     if (cb) {
       // getter with cb
       getter = () =>
@@ -249,6 +255,7 @@ function doWatch(
     }
   } else {
     getter = NOOP
+    // source警告
     __DEV__ && warnInvalidSource(source)
   }
 
@@ -296,14 +303,21 @@ function doWatch(
     return NOOP
   }
 
+  // 初始化旧值
   let oldValue = isMultiSource ? [] : INITIAL_WATCHER_VALUE
   const job: SchedulerJob = () => {
     if (!effect.active) {
       return
     }
+    // 如果传了cb就是watch，否则就是watchEffect
     if (cb) {
       // watch(source, cb)
+      // 新值 newValue
       const newValue = effect.run()
+      // 监听的值是reactive（deep为true）
+      // forceTrigger 代表需要强制执行副作用函数
+      // isMultiSource 代表多个存在多个source（source是个数组）
+      //   判断新旧值是否发生变化
       if (
         deep ||
         forceTrigger ||
@@ -318,33 +332,41 @@ function doWatch(
       ) {
         // cleanup before running cb again
         if (cleanup) {
+          // 清除副作用函数
           cleanup()
         }
+        // 简单来说就是 执行回调函数
         callWithAsyncErrorHandling(cb, instance, ErrorCodes.WATCH_CALLBACK, [
           newValue,
           // pass undefined as the old value when it's changed for the first time
           oldValue === INITIAL_WATCHER_VALUE ? undefined : oldValue,
           onCleanup
         ])
+        // 更新旧值
         oldValue = newValue
       }
     } else {
-      // watchEffect
+      // watchEffect的场景
       effect.run()
     }
   }
 
   // important: mark the job as a watcher callback so that scheduler knows
   // it is allowed to self-trigger (#1727)
+  // 将job标记为观察者回调，便于scheduler知道它允许自我触发
   job.allowRecurse = !!cb
 
   let scheduler: EffectScheduler
+  // flush 用来指定回调函数的执行时机默认pre
   if (flush === 'sync') {
+    // 创建一个同步触发的侦听器，它会在 Vue 进行任何更新之前触发
     scheduler = job as any // the scheduler function gets called directly
   } else if (flush === 'post') {
+    // 放入微任务队列，在 DOM 更新后执行
     scheduler = () => queuePostRenderEffect(job, instance && instance.suspense)
   } else {
     // default: 'pre'
+    // 在组件更新之前执行，如果组件未挂载，则在挂载之前同步执行回调
     scheduler = () => queuePreFlushCb(job)
   }
 
@@ -358,8 +380,10 @@ function doWatch(
   // initial run
   if (cb) {
     if (immediate) {
+      // 强制侦听器的回调立即执行,拿到的是旧值
       job()
     } else {
+      // 拿到旧值
       oldValue = effect.run()
     }
   } else if (flush === 'post') {
