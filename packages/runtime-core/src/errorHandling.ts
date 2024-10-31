@@ -67,6 +67,7 @@ export function callWithErrorHandling(
 ) {
   let res
   try {
+    // 执行watch回调函数，如果发生错误，则调用handleError函数
     res = args ? fn(...args) : fn()
   } catch (err) {
     handleError(err, instance, type)
