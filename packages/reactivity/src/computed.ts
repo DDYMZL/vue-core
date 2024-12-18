@@ -84,15 +84,18 @@ export function computed<T>(
   let getter: ComputedGetter<T>
   let setter: ComputedSetter<T>
 
+  // 如果第一个参数数函数，证明只有getter
   const onlyGetter = isFunction(getterOrOptions)
   if (onlyGetter) {
     getter = getterOrOptions
+    // 设置一个默认的setter
     setter = __DEV__
       ? () => {
           console.warn('Write operation failed: computed value is readonly')
         }
       : NOOP
   } else {
+    // 拿到get和set方法
     getter = getterOrOptions.get
     setter = getterOrOptions.set
   }

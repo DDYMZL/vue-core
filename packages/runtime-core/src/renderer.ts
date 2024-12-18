@@ -351,6 +351,9 @@ function baseCreateRenderer(
 
   // Note: functions inside this closure should use `const xxx = () => {}`
   // style in order to prevent being inlined by minifiers.
+  // 虚拟DOM的patch方法
+  // 用于比较n1 n2两个虚拟DOM节点的差异，根据差异更新实际DOM
+  //
   const patch: PatchFn = (
     n1,
     n2,
@@ -362,11 +365,13 @@ function baseCreateRenderer(
     slotScopeIds = null,
     optimized = __DEV__ && isHmrUpdating ? false : !!n2.dynamicChildren
   ) => {
+    // 如果两节点一样，则直接返回
     if (n1 === n2) {
       return
     }
 
     // patching & not same type, unmount old tree
+    // 如果存在旧节点，但是新旧dom类型不一样，则卸载旧节点
     if (n1 && !isSameVNodeType(n1, n2)) {
       anchor = getNextHostNode(n1)
       unmount(n1, parentComponent, parentSuspense, true)
@@ -380,12 +385,15 @@ function baseCreateRenderer(
 
     const { type, ref, shapeFlag } = n2
     switch (type) {
+      // 文本节点
       case Text:
         processText(n1, n2, container, anchor)
         break
+      // 注释节点
       case Comment:
         processCommentNode(n1, n2, container, anchor)
         break
+      // 静态节点：不会发生变化的节点
       case Static:
         if (n1 == null) {
           mountStaticNode(n2, container, anchor, isSVG)
@@ -393,6 +401,7 @@ function baseCreateRenderer(
           patchStaticNode(n1, n2, container, isSVG)
         }
         break
+      // 片段节点，多个子节点集合（v-for）
       case Fragment:
         processFragment(
           n1,
@@ -407,6 +416,7 @@ function baseCreateRenderer(
         )
         break
       default:
+        // 普通HTML节点
         if (shapeFlag & ShapeFlags.ELEMENT) {
           processElement(
             n1,
@@ -420,6 +430,7 @@ function baseCreateRenderer(
             optimized
           )
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
+          // vue组件节点
           processComponent(
             n1,
             n2,
@@ -432,6 +443,7 @@ function baseCreateRenderer(
             optimized
           )
         } else if (shapeFlag & ShapeFlags.TELEPORT) {
+          // teleport节点
           ;(type as typeof TeleportImpl).process(
             n1 as TeleportVNode,
             n2 as TeleportVNode,
@@ -445,6 +457,7 @@ function baseCreateRenderer(
             internals
           )
         } else if (__FEATURE_SUSPENSE__ && shapeFlag & ShapeFlags.SUSPENSE) {
+          // suspense节点
           ;(type as typeof SuspenseImpl).process(
             n1,
             n2,
@@ -463,6 +476,7 @@ function baseCreateRenderer(
     }
 
     // set ref
+    // 如果存在ref 更新ref的引用
     if (ref != null && parentComponent) {
       setRef(ref, n1 && n1.ref, parentSuspense, n2 || n1, !n2)
     }
@@ -768,21 +782,22 @@ function baseCreateRenderer(
     }
   }
 
+  // 挂载子节点
   const mountChildren: MountChildrenFn = (
-    children,
-    container,
-    anchor,
-    parentComponent,
-    parentSuspense,
-    isSVG,
-    slotScopeIds,
-    optimized,
-    start = 0
+    children, // 要挂载的子节点数组
+    container, // 目标容器
+    anchor, // 锚点，通过锚点确定子节点插入的位置
+    parentComponent, // 父组件实例
+    parentSuspense, // 父级 suspense 边界
+    isSVG, // 是否为 svg
+    slotScopeIds, // 插槽作用域id数组
+    optimized, // 是否优化
+    start = 0 // 从哪个位置开始挂载
   ) => {
     for (let i = start; i < children.length; i++) {
       const child = (children[i] = optimized
-        ? cloneIfMounted(children[i] as VNode)
-        : normalizeVNode(children[i]))
+        ? cloneIfMounted(children[i] as VNode) // 在已经挂载的节点基础上克隆一个新节点，避免重复渲染
+        : normalizeVNode(children[i])) // 将子节点标准化为 VNode
       patch(
         null,
         child,
@@ -964,22 +979,30 @@ function baseCreateRenderer(
     for (let i = 0; i < newChildren.length; i++) {
       const oldVNode = oldChildren[i]
       const newVNode = newChildren[i]
+
+      // 根据不同的情况，来确定container这个父容器
       // Determine the container (parent element) for the patch.
       const container =
         // oldVNode may be an errored async setup() component inside Suspense
         // which will not have a mounted element
+        // 检查oldVNode是否存在el属性，如果存在，证明它是一个真实的DOM，没有则为null
         oldVNode.el &&
         // - In the case of a Fragment, we need to provide the actual parent
         // of the Fragment itself so it can move its children.
+        // 是否为一个Fragment，如果是则需要为它提供一个父节点
+        // fragment作为一个虚拟容器，不能通过他的el操作DOM
         (oldVNode.type === Fragment ||
           // - In the case of different nodes, there is going to be a replacement
           // which also requires the correct parent container
+          // 判断新旧的类型是否一致
           !isSameVNodeType(oldVNode, newVNode) ||
           // - In the case of a component, it could contain anything.
+          // 如果oldVNode是一个组件或者是Teleport，那么它可能包含其它子节点
           oldVNode.shapeFlag & (ShapeFlags.COMPONENT | ShapeFlags.TELEPORT))
           ? hostParentNode(oldVNode.el)!
           : // In other cases, the parent container is not actually used so we
             // just pass the block element here to avoid a DOM parentNode call.
+            // 如果以上都不满足，则使用fallbackContainer作为父容器
             fallbackContainer
       patch(
         oldVNode,
@@ -1059,31 +1082,41 @@ function baseCreateRenderer(
     slotScopeIds: string[] | null,
     optimized: boolean
   ) => {
+    // 生成开始锚点
     const fragmentStartAnchor = (n2.el = n1 ? n1.el : hostCreateText(''))!
+    // 生成结束锚点
     const fragmentEndAnchor = (n2.anchor = n1 ? n1.anchor : hostCreateText(''))!
 
     let { patchFlag, dynamicChildren, slotScopeIds: fragmentSlotScopeIds } = n2
 
     if (__DEV__ && isHmrUpdating) {
       // HMR updated, force full diff
+      // 如果是本地环境 并且是热更新，则强制全量diff
       patchFlag = 0
       optimized = false
       dynamicChildren = null
     }
 
     // check if this is a slot fragment with :slotted scope ids
+    // 检查如果是一个插槽片段 并且带有作用域id
     if (fragmentSlotScopeIds) {
+      // 合并作用域id
       slotScopeIds = slotScopeIds
         ? slotScopeIds.concat(fragmentSlotScopeIds)
         : fragmentSlotScopeIds
     }
 
+    // 如果n1为空，代表是个新fragment
     if (n1 == null) {
+      // 将开始和结束锚点插入到容器container中
       hostInsert(fragmentStartAnchor, container, anchor)
       hostInsert(fragmentEndAnchor, container, anchor)
       // a fragment can only have array children
       // since they are either generated by the compiler, or implicitly created
       // from arrays.
+      // 一个片段只能有数组子项，它们要么是由编译器生成的，要么是由数组隐式创建的
+
+      // 通过mountChildren挂载子节点
       mountChildren(
         n2.children as VNodeArrayChildren,
         container,
@@ -1101,10 +1134,14 @@ function baseCreateRenderer(
         dynamicChildren &&
         // #2715 the previous fragment could've been a BAILed one as a result
         // of renderSlot() with no valid children
+        // 之前的 Fragment 节点可能是由于使用 renderSlot() 渲染的一个插槽，并且该插槽没有任何有效的子节点
+        // 因此 Vue 会放弃渲染这个 Fragment，即将其标记为 BAIL，不进行后续的更新或渲染。
         n1.dynamicChildren
       ) {
         // a stable fragment (template root or <template v-for>) doesn't need to
         // patch children order, but it may contain dynamicChildren.
+
+        // 进入这个if标识这个片段是稳定的。稳定：代表这个片段的子节点顺序不会改变，但是内容可能会改变
         patchBlockChildren(
           n1.dynamicChildren,
           dynamicChildren,
@@ -1131,6 +1168,12 @@ function baseCreateRenderer(
         // for keyed & unkeyed, since they are compiler generated from v-for,
         // each child is guaranteed to be a block so the fragment will never
         // have dynamicChildren.
+        // 对于有key和无key的片段，由于它们是由 v-for 编译器生成的
+        // 所以每个子节点都保证是一个块，因此片段将永远不会有 dynamicChildren
+
+        // 对于v-for生成的片段，每个子节点都是一个完整的虚拟节点
+        // 并且会通过key来管理，因此这些片段不需要使用dynamicChildren来追踪动态更新
+        // 因为每个节点的内容和顺序都是已知且独立
         patchChildren(
           n1,
           n2,
@@ -1608,6 +1651,9 @@ function baseCreateRenderer(
       if (patchFlag & PatchFlags.KEYED_FRAGMENT) {
         // this could be either fully-keyed or mixed (some keyed some not)
         // presence of patchFlag means children are guaranteed to be arrays
+        // 当patchFlag存在的时候，证明当前节点的子节点已经是个数组类型
+        // 这些个子节点可能是都带key，也有可能是部分带key
+
         patchKeyedChildren(
           c1 as VNode[],
           c2 as VNodeArrayChildren,
@@ -1622,6 +1668,7 @@ function baseCreateRenderer(
         return
       } else if (patchFlag & PatchFlags.UNKEYED_FRAGMENT) {
         // unkeyed
+        // 如果没有带key的片段
         patchUnkeyedChildren(
           c1 as VNode[],
           c2 as VNodeArrayChildren,
@@ -1638,19 +1685,24 @@ function baseCreateRenderer(
     }
 
     // children has 3 possibilities: text, array or no children.
+    // 文本类型
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
       // text children fast path
+      // 如果旧的节点是数组类型，则需要卸载旧的节点
       if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
         unmountChildren(c1 as VNode[], parentComponent, parentSuspense)
       }
+      // 新旧的文本内容不同，则更新文本内容
       if (c2 !== c1) {
         hostSetElementText(container, c2 as string)
       }
     } else {
+      // 如果旧的节点是数组类型
       if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
         // prev children was array
         if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
           // two arrays, cannot assume anything, do full diff
+          // 新的节点也是数组类型 则diff 更新
           patchKeyedChildren(
             c1 as VNode[],
             c2 as VNodeArrayChildren,
@@ -1664,15 +1716,18 @@ function baseCreateRenderer(
           )
         } else {
           // no new children, just unmount old
+          // 如果新的节点没有子节点（不是数组类型），则卸载旧的子节点
           unmountChildren(c1 as VNode[], parentComponent, parentSuspense, true)
         }
       } else {
         // prev children was text OR null
         // new children is array OR null
+        // 如果节点是文本类型，则清空文本内容
         if (prevShapeFlag & ShapeFlags.TEXT_CHILDREN) {
           hostSetElementText(container, '')
         }
         // mount new if array
+        // 新节点是数组
         if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
           mountChildren(
             c2 as VNodeArrayChildren,
