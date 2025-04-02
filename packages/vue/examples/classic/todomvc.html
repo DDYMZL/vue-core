@@ -95,7 +95,7 @@
     },
     save(todos) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(todos))
-    }
+    },
   }
 
   const filters = {
@@ -111,7 +111,7 @@
       return todos.filter(function (todo) {
         return todo.completed
       })
-    }
+    },
   }
 
   Vue.createApp({
@@ -120,7 +120,7 @@
       todos: todoStorage.fetch(),
       newTodo: '',
       editedTodo: null,
-      visibility: 'all'
+      visibility: 'all',
     }),
 
     // watch todos change for localStorage persistence
@@ -129,22 +129,13 @@
         handler(todos) {
           todoStorage.save(todos)
         },
-        deep: true
-      }
+        deep: true,
+      },
     },
 
     mounted() {
       window.addEventListener('hashchange', this.onHashChange)
       this.onHashChange()
-      this.$nextTick(() => {
-        console.log(111)
-      })
-      this.$nextTick(() => {
-        console.log(222)
-      })
-      this.$nextTick(() => {
-        console.log(333)
-      })
     },
 
     computed: {
@@ -162,8 +153,8 @@
           this.todos.forEach(function (todo) {
             todo.completed = value
           })
-        }
-      }
+        },
+      },
     },
 
     // methods that implement data logic.
@@ -177,7 +168,7 @@
         this.todos.push({
           id: todoStorage.uid++,
           title: value,
-          completed: false
+          completed: false,
         })
         this.newTodo = ''
       },
@@ -223,7 +214,7 @@
 
       pluralize(n) {
         return n === 1 ? 'item' : 'items'
-      }
+      },
     },
 
     directives: {
@@ -231,7 +222,7 @@
         if (binding.value) {
           el.focus()
         }
-      }
-    }
+      },
+    },
   }).mount('#app')
 </script>
